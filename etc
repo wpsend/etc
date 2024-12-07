@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Path to store the execution count
+COUNT_FILE="/var/log/resolv_conf_execution_count.txt"
+
+# Get the current IP address of the system
+IP_ADDRESS=$(hostname -I | awk '{print $1}')
+
+# Check if the count file exists, if not create it with initial value 0
+if [ ! -f "$COUNT_FILE" ]; then
+  echo "0" > "$COUNT_FILE"
+fi
+
+# Read the current count from the file
+COUNT=$(cat "$COUNT_FILE")
+
+# Increment the count by 1
+COUNT=$((COUNT + 1))
+
+# Update the count file with the new value
+echo "$COUNT" > "$COUNT_FILE"
+
+# Check if the script is run as root
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run this script as root (sudo)."
+  exit 1
+fi
+
+# Update /etc/resolv.conf with Google's DNS
+echo -e "nameserver 8.8.8.8\nnameserver 8.8.4.4" | tee /etc/resolv.conf > /dev/null
+
+# Verify if the changes were applied successfully
+if grep -q "8.8.8.8" /etc/resolv.conf && grep -q "8.8.4.4" /etc/resolv.conf; then
+  # Automatically sync IP to a log file
+  echo "IP Address: $IP_ADDRESS" > /var/log/resolv_conf_ip_log.txt
+  # No output to terminal, everything is logged internally
+else
+  echo "An error occurred. Please try again."
+fi
